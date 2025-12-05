@@ -25,6 +25,8 @@ type UpdateProfileResponse struct {
 
 type ProfileService interface {
 	UpdateProfile(ctx context.Context, userID string, input UpdateProfileInput, avatar *AvatarFile) (*UpdateProfileResponse, error)
+	GetProfileByUsername(ctx context.Context, username string) (*model.PublicProfileResponse, error)
+	GetCurrentProfile(ctx context.Context, userID string) (*UpdateProfileResponse, error)
 }
 
 type profileService struct {
@@ -101,5 +103,40 @@ func (s *profileService) UpdateProfile(ctx context.Context, userID string, input
 	return &UpdateProfileResponse{
 		User:    updatedUser,
 		Profile: updatedUser.Profile,
+	}, nil
+}
+
+func (s *profileService) GetProfileByUsername(ctx context.Context, username string) (*model.PublicProfileResponse, error) {
+	user, err := s.repo.FindByUsername(ctx, username)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	response := &model.PublicProfileResponse{
+		Username:  user.Username,
+		Role:      user.Role.Name,
+		AvatarURL: user.AvatarURL,
+		CreatedAt: user.CreatedAt,
+	}
+
+	if user.Profile != nil {
+		response.ClassGrade = user.Profile.ClassGrade
+		response.Bio = user.Profile.Bio
+	}
+
+	return response, nil
+}
+
+func (s *profileService) GetCurrentProfile(ctx context.Context, userID string) (*UpdateProfileResponse, error) {
+	user, err := s.repo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	user.PasswordHash = ""
+
+	return &UpdateProfileResponse{
+		User:    user,
+		Profile: user.Profile,
 	}, nil
 }

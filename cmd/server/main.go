@@ -62,8 +62,16 @@ func main() {
 
 	authMiddleware := middleware.NewAuthMiddleware(userRepo)
 
+	// Public routes (tidak perlu auth)
+	
+
+	// Protected routes (perlu auth)
 	api.Use(authMiddleware.RequireAuth())
 	{
+		{
+		api.GET("/profile/:username", profileHandler.GetProfileByUsername)
+		}
+
 		admin := api.Group("/admin")
 		admin.Use(authMiddleware.RequireAdmin())
 		{
@@ -72,6 +80,8 @@ func main() {
 
 		profile := api.Group("/profile")
 		{
+			api.GET("/:username", profileHandler.GetProfileByUsername)
+			profile.GET("/me", profileHandler.GetCurrentProfile)
 			profile.PUT("", profileHandler.UpdateProfile)
 		}
 	}

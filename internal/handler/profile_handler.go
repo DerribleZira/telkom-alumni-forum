@@ -17,6 +17,38 @@ func NewProfileHandler(profileService service.ProfileService) *ProfileHandler {
 	}
 }
 
+func (h *ProfileHandler) GetProfileByUsername(c *gin.Context) {
+	username := c.Param("username")
+	if username == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "username diperlukan"})
+		return
+	}
+
+	profile, err := h.profileService.GetProfileByUsername(c.Request.Context(), username)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, profile)
+}
+
+func (h *ProfileHandler) GetCurrentProfile(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user tidak terautentikasi"})
+		return
+	}
+
+	profile, err := h.profileService.GetCurrentProfile(c.Request.Context(), userID.(string))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, profile)
+}
+
 func (h *ProfileHandler) UpdateProfile(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {

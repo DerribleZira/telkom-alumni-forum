@@ -39,7 +39,7 @@ Content-Type: multipart/form-data
 - `email` (required): string, format email
 - `password` (required): string, min 8 karakter
 - `role` (required): string (admin/guru/siswa)
-- `full_name` (required): string  
+- `full_name` (required): string
 - `identity_number` (optional): string
 - `class_grade` (optional): string
 - `bio` (optional): string
@@ -72,7 +72,75 @@ Content-Type: multipart/form-data
 }
 ```
 
-### 2. ✅ PUT /api/profile (Authenticated User)
+### 2. ✅ GET /api/profile/:username (Public)
+
+Mendapatkan data profil publik user berdasarkan username. Endpoint ini tidak memerlukan autentikasi.
+
+**URL Parameter:**
+
+- `username` (required): username dari user yang ingin dilihat
+
+**Response (200):**
+
+```json
+{
+  "username": "johndoe",
+  "role": "siswa",
+  "avatar_url": "https://...",
+  "created_at": "2024-01-01T00:00:00Z",
+  "class_grade": "12A",
+  "bio": "Hello world"
+}
+```
+
+**Response (404):**
+
+```json
+{
+  "error": "user not found"
+}
+```
+
+### 3. ✅ GET /api/profile/me (Authenticated User)
+
+Mendapatkan data profil lengkap dari user yang sedang login. Menampilkan semua data termasuk email dan informasi sensitif lainnya.
+
+**Headers:**
+
+```
+Authorization: Bearer <user_token>
+```
+
+**Response (200):**
+
+```json
+{
+  "user": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "username": "johndoe",
+    "email": "john@example.com",
+    "role_id": 2,
+    "role": {
+      "id": 2,
+      "name": "siswa",
+      "description": "Siswa",
+      "created_at": "2024-01-01T00:00:00Z"
+    },
+    "avatar_url": "https://...",
+    "created_at": "2024-01-01T00:00:00Z"
+  },
+  "profile": {
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "full_name": "John Doe",
+    "identity_number": "123456",
+    "class_grade": "12A",
+    "bio": "Hello world",
+    "created_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+### 4. ✅ PUT /api/profile (Authenticated User)
 
 Update profile user sendiri. User hanya bisa edit username, password, bio, dan avatar.
 
@@ -95,17 +163,26 @@ Content-Type: multipart/form-data
 ```json
 {
   "user": {
-    "id": 1,
+    "id": "550e8400-e29b-41d4-a716-446655440000",
     "username": "johndoe_updated",
     "email": "john@example.com",
     "role_id": 2,
+    "role": {
+      "id": 2,
+      "name": "siswa",
+      "description": "Siswa",
+      "created_at": "2024-01-01T00:00:00Z"
+    },
     "avatar_url": "https://...",
     "created_at": "2024-01-01T00:00:00Z"
   },
   "profile": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
     "full_name": "John Doe",
-    "bio": "Updated bio"
+    "identity_number": "123456",
+    "class_grade": "12A",
+    "bio": "Updated bio",
+    "created_at": "2024-01-01T00:00:00Z"
   }
 }
 ```
@@ -137,6 +214,7 @@ Login untuk semua user (tidak ada perubahan).
   "profile": {...}
 }
 ```
+
 ## Error Response
 
 Semua endpoint akan mengembalikan error message yang jelas dalam bahasa Indonesia:
