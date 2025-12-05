@@ -11,6 +11,7 @@ Thumbs.db
 .idea/
 *.iml
 .fleet/
+.agent/
 
 ### Go build artifacts
 bin/

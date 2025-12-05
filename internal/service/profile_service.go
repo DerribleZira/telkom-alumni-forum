@@ -39,10 +39,10 @@ func (s *profileService) UpdateProfile(ctx context.Context, userID string, input
 
 	if input.Username != nil && *input.Username != "" && *input.Username != user.Username {
 		if len(*input.Username) < 3 {
-			return nil, errors.New("Username minimal 3 karakter")
+			return nil, errors.New("username minimal 3 karakter")
 		}
 		if len(*input.Username) > 50 {
-			return nil, errors.New("Username maksimal 50 karakter")
+			return nil, errors.New("username maksimal 50 karakter")
 		}
 		if _, err := s.repo.FindByUsername(ctx, *input.Username); err == nil {
 			return nil, errors.New("username already taken")
@@ -54,7 +54,7 @@ func (s *profileService) UpdateProfile(ctx context.Context, userID string, input
 
 	if input.Password != nil && *input.Password != "" {
 		if len(*input.Password) < 8 {
-			return nil, errors.New("Password minimal 8 karakter")
+			return nil, errors.New("password minimal 8 karakter")
 		}
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*input.Password), bcrypt.DefaultCost)
 		if err != nil {

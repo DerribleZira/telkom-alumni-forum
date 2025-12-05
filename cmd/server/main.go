@@ -76,6 +76,9 @@ func main() {
 		admin.Use(authMiddleware.RequireAdmin())
 		{
 			admin.POST("/users", adminHandler.CreateUser)
+			admin.GET("/users", adminHandler.GetAllUsers)
+			admin.PUT("/users/:id", adminHandler.UpdateUser)
+			admin.DELETE("/users/:id", adminHandler.DeleteUser)
 		}
 
 		profile := api.Group("/profile")

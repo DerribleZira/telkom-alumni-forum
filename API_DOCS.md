@@ -72,7 +72,114 @@ Content-Type: multipart/form-data
 }
 ```
 
-### 2. ✅ GET /api/profile/:username (Public)
+### 2. ✅ GET /api/admin/users (Admin Only)
+
+Mendapatkan daftar semua user yang terdaftar di sistem (tanpa password hash).
+
+**Headers:**
+
+```
+Authorization: Bearer <admin_token>
+```
+
+**Response (200):**
+
+```json
+{
+  "data": [
+    {
+      "user": {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "username": "johndoe",
+        "email": "john@example.com",
+        "role_id": 2,
+        "role": {
+          "id": 2,
+          "name": "siswa",
+          "description": "Siswa",
+          "created_at": "2024-01-01T00:00:00Z"
+        },
+        "avatar_url": "https://...",
+        "created_at": "2024-01-01T00:00:00Z"
+      },
+      "role": {
+        "id": 2,
+        "name": "siswa",
+        "description": "Siswa"
+      },
+      "profile": {
+        "user_id": "550e8400-e29b-41d4-a716-446655440000",
+        "full_name": "John Doe",
+        "identity_number": "123456",
+        "class_grade": "12A",
+        "bio": "Hello world",
+        "created_at": "2024-01-01T00:00:00Z"
+      }
+    }
+  ]
+}
+```
+
+### 3. ✅ PUT /api/admin/users/:id (Admin Only)
+
+Mengupdate data user manapun (termasuk password) oleh admin.
+
+**Headers:**
+
+```
+Authorization: Bearer <admin_token>
+Content-Type: multipart/form-data
+```
+
+**URL Parameter:**
+
+- `id`: UUID dari user yang akan diupdate
+
+**Body (form-data):**
+
+- `username` (optional): string
+- `email` (optional): string
+- `password` (optional): string
+- `role` (optional): string (nama role: admin/guru/siswa)
+- `full_name` (optional): string
+- `identity_number` (optional): string
+- `class_grade` (optional): string
+- `bio` (optional): string
+- `avatar` (optional): file gambar
+
+**Response (200):**
+
+```json
+{
+  "user": { ... },
+  "role": { ... },
+  "profile": { ... }
+}
+```
+
+### 4. ✅ DELETE /api/admin/users/:id (Admin Only)
+
+Menghapus user dari sistem beserta data profile-nya.
+
+**Headers:**
+
+```
+Authorization: Bearer <admin_token>
+```
+
+**URL Parameter:**
+
+- `id`: UUID dari user yang akan dihapus
+
+**Response (200):**
+
+```json
+{
+  "message": "user deleted successfully"
+}
+```
+
+### 5. ✅ GET /api/profile/:username (Authenticated User)
 
 Mendapatkan data profil publik user berdasarkan username. Endpoint ini tidak memerlukan autentikasi.
 
@@ -101,7 +208,7 @@ Mendapatkan data profil publik user berdasarkan username. Endpoint ini tidak mem
 }
 ```
 
-### 3. ✅ GET /api/profile/me (Authenticated User)
+### 6. ✅ GET /api/profile/me (Authenticated User)
 
 Mendapatkan data profil lengkap dari user yang sedang login. Menampilkan semua data termasuk email dan informasi sensitif lainnya.
 
@@ -140,7 +247,7 @@ Authorization: Bearer <user_token>
 }
 ```
 
-### 4. ✅ PUT /api/profile (Authenticated User)
+### 7. ✅ PUT /api/profile (Authenticated User)
 
 Update profile user sendiri. User hanya bisa edit username, password, bio, dan avatar.
 

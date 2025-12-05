@@ -14,6 +14,8 @@ type UserRepository interface {
 	FindByUsername(ctx context.Context, username string) (*model.User, error)
 	FindRoleByName(ctx context.Context, name string) (*model.Role, error)
 	Update(ctx context.Context, user *model.User, profile *model.Profile) error
+	FindAll(ctx context.Context) ([]*model.User, error)
+	Delete(ctx context.Context, id string) error
 }
 
 type userRepository struct {
@@ -103,4 +105,20 @@ func (r *userRepository) Update(ctx context.Context, user *model.User, profile *
 
 		return nil
 	})
+}
+
+func (r *userRepository) FindAll(ctx context.Context) ([]*model.User, error) {
+	var users []*model.User
+	if err := r.db.WithContext(ctx).
+		Preload("Role").
+		Preload("Profile").
+		Find(&users).Error; err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+func (r *userRepository) Delete(ctx context.Context, id string) error {
+	return r.db.WithContext(ctx).Delete(&model.User{}, "id = ?", id).Error
 }
