@@ -259,22 +259,34 @@ Authorization: Bearer <user_token>
 
 ### 8. ✅ POST /api/threads (Authenticated User)
 
-Membuat thread baru, bisa menyertakan lampiran gambar/file.
+Membuat thread baru dengan opsi melampirkan file yang sudah diupload sebelumnya.
 
 **Headers:**
 
 ```
 Authorization: Bearer <user_token>
-Content-Type: multipart/form-data
+Content-Type: application/json
 ```
 
-**Body (form-data):**
+**Body (JSON):**
 
 - `category_id` (required): UUID v7 (string) dari kategori.
 - `title` (required): string, max 255 char.
 - `content` (required): string (bisa markdown/html).
 - `audience` (required): string (`semua`, `guru`, `siswa`). Target pembaca.
-- `attachments` (optional): multiple files (images/docs).
+- `attachment_ids` (optional): array of int. ID dari attachment yang sudah diupload via `/api/upload`.
+
+**Contoh Payload:**
+
+```json
+{
+  "category_id": "018e3a2d-...",
+  "title": "Diskusi PR Matematika",
+  "content": "Ada yang bisa bantu soal no 5? ![img](url)",
+  "audience": "semua",
+  "attachment_ids": [10, 11]
+}
+```
 
 **Response (201):**
 
@@ -445,6 +457,31 @@ Content-Type: multipart/form-data
     "bio": "Updated bio",
     "created_at": "2024-01-01T00:00:00Z"
   }
+}
+```
+
+### 13. ✅ POST /api/upload (Authenticated User)
+
+Upload file/gambar sementara sebelum membuat thread. File yang diupload akan menjadi "orphan" (yatim) sampai "diadopsi" oleh thread saat pembuatannya. File yatim > 24 jam akan dihapus otomatis.
+
+**Headers:**
+
+```
+Authorization: Bearer <user_token>
+Content-Type: multipart/form-data
+```
+
+**Body (form-data):**
+
+- `file` (required): File gambar/dokumen untuk diupload.
+
+**Response (201):**
+
+```json
+{
+  "id": 105,
+  "file_url": "https://res.cloudinary.com/.../image.jpg",
+  "file_type": "image/jpeg"
 }
 ```
 

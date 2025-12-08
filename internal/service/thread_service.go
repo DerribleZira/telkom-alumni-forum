@@ -18,18 +18,20 @@ type ThreadService interface {
 }
 
 type threadService struct {
-	threadRepo   repository.ThreadRepository
-	categoryRepo repository.CategoryRepository
-	userRepo     repository.UserRepository
-	fileStorage  storage.ImageStorage
+	threadRepo     repository.ThreadRepository
+	categoryRepo   repository.CategoryRepository
+	userRepo       repository.UserRepository
+	attachmentRepo repository.AttachmentRepository
+	fileStorage    storage.ImageStorage
 }
 
-func NewThreadService(threadRepo repository.ThreadRepository, categoryRepo repository.CategoryRepository, userRepo repository.UserRepository, fileStorage storage.ImageStorage) ThreadService {
+func NewThreadService(threadRepo repository.ThreadRepository, categoryRepo repository.CategoryRepository, userRepo repository.UserRepository, attachmentRepo repository.AttachmentRepository, fileStorage storage.ImageStorage) ThreadService {
 	return &threadService{
-		threadRepo:   threadRepo,
-		categoryRepo: categoryRepo,
-		userRepo:     userRepo,
-		fileStorage:  fileStorage,
+		threadRepo:     threadRepo,
+		categoryRepo:   categoryRepo,
+		userRepo:       userRepo,
+		attachmentRepo: attachmentRepo,
+		fileStorage:    fileStorage,
 	}
 }
 
@@ -79,29 +81,17 @@ func (s *threadService) CreateThread(ctx context.Context, userID uuid.UUID, req 
 		Audience:   req.Audience,
 	}
 
-	var attachments []model.Attachment
-	for _, file := range req.Attachments {
-		f, err := file.Open()
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		url, err := s.fileStorage.UploadImage(ctx, f, "threads", file.Filename)
-		if err != nil {
-			return err
-		}
-
-		attachments = append(attachments, model.Attachment{
-			UserID:   userID,
-			FileURL:  url,
-			FileType: file.Header.Get("Content-Type"),
-		})
+	if err := s.threadRepo.Create(ctx, thread); err != nil {
+		return err
 	}
 
-	thread.Attachments = attachments
+	if len(req.AttachmentIDs) > 0 {
+		if err := s.attachmentRepo.UpdateThreadID(ctx, req.AttachmentIDs, thread.ID, userID); err != nil {
+			return err
+		}
+	}
 
-	return s.threadRepo.Create(ctx, thread)
+	return nil
 }
 
 func (s *threadService) GetAllThreads(ctx context.Context, userID uuid.UUID, filter dto.ThreadFilter) (*dto.PaginatedThreadResponse, error) {

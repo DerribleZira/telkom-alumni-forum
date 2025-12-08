@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
+	"time"
 
 	"anoa.com/telkomalumiforum/internal/handler"
 	"anoa.com/telkomalumiforum/internal/middleware"
@@ -56,8 +58,12 @@ func main() {
 	categoryService := service.NewCategoryService(categoryRepo)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 
+	attachmentRepo := repository.NewAttachmentRepository(db)
+	attachmentService := service.NewAttachmentService(attachmentRepo, imageStorage)
+	attachmentHandler := handler.NewAttachmentHandler(attachmentService)
+
 	threadRepo := repository.NewThreadRepository(db)
-	threadService := service.NewThreadService(threadRepo, categoryRepo, userRepo, imageStorage)
+	threadService := service.NewThreadService(threadRepo, categoryRepo, userRepo, attachmentRepo, imageStorage)
 	threadHandler := handler.NewThreadHandler(threadService)
 
 	router := gin.Default()
@@ -98,7 +104,25 @@ func main() {
 			profile.GET("/me", profileHandler.GetCurrentProfile)
 			profile.PUT("", profileHandler.UpdateProfile)
 		}
+
+		api.POST("/upload", attachmentHandler.UploadAttachment)
 	}
+
+	// Start Orphan Cleanup Job (Background)
+	go func() {
+		// Run every 12 hours
+		ticker := time.NewTicker(12 * time.Hour)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			log.Println("🧹 Running orphan attachment cleanup...")
+			if err := attachmentService.CleanupOrphanAttachments(context.Background()); err != nil {
+				log.Printf("❌ Error cleaning up orphan attachments: %v", err)
+			} else {
+				log.Println("✅ Orphan attachment cleanup completed.")
+			}
+		}
+	}()
 
 	port := os.Getenv("PORT")
 	if port == "" {

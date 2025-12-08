@@ -1,17 +1,15 @@
 package dto
 
 import (
-	"mime/multipart"
-
 	"github.com/google/uuid"
 )
 
 type CreateThreadRequest struct {
-	CategoryID  string                  `form:"category_id" binding:"required,uuid"`
-	Title       string                  `form:"title" binding:"required,max=255"`
-	Content     string                  `form:"content" binding:"required"`
-	Audience    string                  `form:"audience" binding:"required,oneof=semua guru siswa"`
-	Attachments []*multipart.FileHeader `form:"attachments"`
+	CategoryID    string `json:"category_id" binding:"required,uuid"`
+	Title         string `json:"title" binding:"required,max=255"`
+	Content       string `json:"content" binding:"required"`
+	Audience      string `json:"audience" binding:"required,oneof=semua guru siswa"`
+	AttachmentIDs []uint `json:"attachment_ids"`
 }
 
 type ThreadResponse struct {

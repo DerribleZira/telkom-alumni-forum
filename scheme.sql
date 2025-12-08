@@ -73,18 +73,13 @@ CREATE TABLE posts (
 CREATE TABLE attachments (
     id SERIAL PRIMARY KEY,
     user_id UUID REFERENCES users(id) ON DELETE CASCADE, -- Uploader
-    thread_id INT REFERENCES threads(id) ON DELETE CASCADE, -- Link ke Thread
-    post_id INT REFERENCES posts(id) ON DELETE CASCADE, -- Link ke Reply
+    thread_id INT REFERENCES threads(id) ON DELETE CASCADE, -- Link ke Thread (Nullable)
+    post_id INT REFERENCES posts(id) ON DELETE CASCADE, -- Link ke Reply (Nullable)
     file_url TEXT NOT NULL, -- Path gambar di server/cloud
     file_type VARCHAR(50), -- 'image/png', 'application/pdf'
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     
-    -- Constraint Logic:
-    -- File harus nempel ke Thread ATAU Post, tidak boleh dua-duanya, tidak boleh kosong dua-duanya.
-    CONSTRAINT check_attachment_parent CHECK (
-        (thread_id IS NOT NULL AND post_id IS NULL) OR 
-        (thread_id IS NULL AND post_id IS NOT NULL)
-    )
+    -- Constraint check_attachment_parent REMOVED to allow orphaned attachments during upload
 );
 
 -- 8. TABEL LIKES
