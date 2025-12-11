@@ -24,15 +24,17 @@ type postService struct {
 	threadRepo     repository.ThreadRepository
 	userRepo       repository.UserRepository
 	attachmentRepo repository.AttachmentRepository
+	likeService    LikeService
 	fileStorage    storage.ImageStorage
 }
 
-func NewPostService(postRepo repository.PostRepository, threadRepo repository.ThreadRepository, userRepo repository.UserRepository, attachmentRepo repository.AttachmentRepository, fileStorage storage.ImageStorage) PostService {
+func NewPostService(postRepo repository.PostRepository, threadRepo repository.ThreadRepository, userRepo repository.UserRepository, attachmentRepo repository.AttachmentRepository, likeService LikeService, fileStorage storage.ImageStorage) PostService {
 	return &postService{
 		postRepo:       postRepo,
 		threadRepo:     threadRepo,
 		userRepo:       userRepo,
 		attachmentRepo: attachmentRepo,
+		likeService:    likeService,
 		fileStorage:    fileStorage,
 	}
 }
@@ -238,6 +240,8 @@ func (s *postService) mapToResponse(post *model.Post) *dto.PostResponse {
 		authorName = post.User.Username
 	}
 
+	likesCount, _ := s.likeService.GetPostLikes(context.Background(), post.ID)
+
 	return &dto.PostResponse{
 		ID:          post.ID,
 		ThreadID:    post.ThreadID,
@@ -245,6 +249,7 @@ func (s *postService) mapToResponse(post *model.Post) *dto.PostResponse {
 		Content:     post.Content,
 		Author:      authorName,
 		Attachments: attachments,
+		LikesCount:  likesCount,
 		CreatedAt:   post.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt:   post.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}

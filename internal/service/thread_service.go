@@ -24,15 +24,17 @@ type threadService struct {
 	categoryRepo   repository.CategoryRepository
 	userRepo       repository.UserRepository
 	attachmentRepo repository.AttachmentRepository
+	likeService    LikeService
 	fileStorage    storage.ImageStorage
 }
 
-func NewThreadService(threadRepo repository.ThreadRepository, categoryRepo repository.CategoryRepository, userRepo repository.UserRepository, attachmentRepo repository.AttachmentRepository, fileStorage storage.ImageStorage) ThreadService {
+func NewThreadService(threadRepo repository.ThreadRepository, categoryRepo repository.CategoryRepository, userRepo repository.UserRepository, attachmentRepo repository.AttachmentRepository, likeService LikeService, fileStorage storage.ImageStorage) ThreadService {
 	return &threadService{
 		threadRepo:     threadRepo,
 		categoryRepo:   categoryRepo,
 		userRepo:       userRepo,
 		attachmentRepo: attachmentRepo,
+		likeService:    likeService,
 		fileStorage:    fileStorage,
 	}
 }
@@ -182,6 +184,8 @@ func (s *threadService) GetAllThreads(ctx context.Context, userID uuid.UUID, fil
 			authorName = thread.User.Username
 		}
 
+		likesCount, _ := s.likeService.GetThreadLikes(ctx, thread.ID)
+
 		resp := dto.ThreadResponse{
 			ID:           thread.ID,
 			CategoryName: thread.Category.Name,
@@ -192,6 +196,7 @@ func (s *threadService) GetAllThreads(ctx context.Context, userID uuid.UUID, fil
 			Views:        thread.Views,
 			Author:       authorName, 
 			Attachments:  attachments,
+			LikesCount:   likesCount,
 			CreatedAt:    thread.CreatedAt.Format("2006-01-02 15:04:05"),
 		}
 		threadResponses = append(threadResponses, resp)
@@ -308,52 +313,6 @@ func (s *threadService) UpdateThread(ctx context.Context, userID uuid.UUID, thre
 
 	// Add new attachments (orphan or just ensure link)
 	if len(req.AttachmentIDs) > 0 {
-		// New Validation: Ensure attachments are either orphans or belong to this thread.
-		// Cannot steal attachments from other threads/posts.
-		
-		// This logic is slightly complex because UpdateThreadID in repo performs a bulk update.
-		// We should ideally verify ownership first.
-		// For simplicity and performance, we can do this check:
-		// Fetch attachments by IDs.
-		// If any attachment has ThreadID != nil AND ThreadID != currentThreadID, Reject.
-		// If any attachment has PostID != nil, Reject.
-		
-		// To implement this, we need a way to fetch attachments by IDs.
-		// Since we don't have that method exposed in Repo yet, let's look at what we can do.
-		// We can add FindByIDs to AttachmentRepo or just check in UpdateThreadID's query?
-		// Actually, `UpdateThreadID` uses `Where("id IN ? AND user_id = ?", attachmentIDs, userID)`.
-		// It only checks if the user owns the attachment.
-		// We need to extend this to ensure it's not attached elsewhere.
-		
-		// Let's modify the query in UpdateThreadID to ALSO check ownership status? No, that's business logic.
-		// Better: Add a method `VerifyAttachmentsAvailable(ids, userID)` or similar.
-		// Or update UpdateThreadID to `UpdateThreadIDIfAvailable`.
-
-		// Let's rely on a more robust check in the service:
-		for _, attID := range req.AttachmentIDs {
-			// Skip if it's already in the thread (we just kept it)
-			if currentAttachments[attID].ID != 0 {
-				continue
-			}
-			
-			// Check individual attachment status (N+1 query risk but acceptable for small attachment counts)
-			// OR we can implement FindByIDs in Repo. 
-			// Given I need to edit Repo anyway to be clean, let's assume we can fetch them.
-			// But since I cannot edit Repo easily in this same turn without context switch (multi_replace only for file),
-			// I will add a check using a loop or assume UpdateThreadID handles it?
-			// The user requirement is strict: "seharusnya ga bisa".
-			
-			// Let's try to add VerifyAttachmentsAvailability to AttachmentRepository in the next step.
-			// For now, I will modify UpdateThreadID to be stricter in the repo! 
-			// Wait, I am editing Service here.
-		}
-		
-		// Strict Update: Only update if (ThreadID IS NULL OR ThreadID = current) AND (PostID IS NULL).
-		// We can change the call to a new Repo method or update the existing one's behavior?
-		// Modifying existing behavior is risky if used elsewhere (CreateThread).
-		// In CreateThread, attachments are orphans (ThreadID=NULL). So that's fine.
-		
-		// So, let's change UpdateThreadID in Repo to ensure ThreadID is NULL (or equal to Target) and PostID is NULL.
 		if err := s.attachmentRepo.UpdateThreadID(ctx, req.AttachmentIDs, thread.ID, userID); err != nil {
 			return err
 		}

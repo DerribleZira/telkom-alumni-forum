@@ -30,6 +30,7 @@ type ThreadResponse struct {
 	Views        int                  `json:"views"`
 	Author       string               `json:"author"`
 	Attachments  []AttachmentResponse `json:"attachments,omitempty"`
+	LikesCount   int64                `json:"likes_count"`
 	CreatedAt    string               `json:"created_at"`
 }
 

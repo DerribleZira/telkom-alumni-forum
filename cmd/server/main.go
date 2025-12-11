@@ -25,6 +25,13 @@ func main() {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
 	db := database.Connect()
+	
+	// Initialize Redis
+	redisClient, err := database.ConnectRedis()
+	if err != nil {
+		log.Printf("Warning: Failed to connect to Redis, like feature will not work: %v", err)
+	}
+
 	if err := migrate(db); err != nil {
 		log.Fatalf("migration failed: %v", err)
 	}
@@ -62,13 +69,22 @@ func main() {
 	attachmentService := service.NewAttachmentService(attachmentRepo, imageStorage)
 	attachmentHandler := handler.NewAttachmentHandler(attachmentService)
 
+	likeRepo := repository.NewLikeRepository(db)
+	likeService := service.NewLikeService(redisClient, likeRepo)
+	likeHandler := handler.NewLikeHandler(likeService)
+
 	threadRepo := repository.NewThreadRepository(db)
-	threadService := service.NewThreadService(threadRepo, categoryRepo, userRepo, attachmentRepo, imageStorage)
+	threadService := service.NewThreadService(threadRepo, categoryRepo, userRepo, attachmentRepo, likeService, imageStorage)
 	threadHandler := handler.NewThreadHandler(threadService)
 
 	postRepo := repository.NewPostRepository(db)
-	postService := service.NewPostService(postRepo, threadRepo, userRepo, attachmentRepo, imageStorage)
+	postService := service.NewPostService(postRepo, threadRepo, userRepo, attachmentRepo, likeService, imageStorage)
 	postHandler := handler.NewPostHandler(postService)
+
+	// Start Like Worker
+	if redisClient != nil {
+		go likeService.StartWorker(context.Background())
+	}
 
 	router := gin.Default()
 
@@ -101,13 +117,18 @@ func main() {
 
 		api.POST("/threads", threadHandler.CreateThread)
 		api.GET("/threads", threadHandler.GetAllThreads)
-		api.PUT("/threads/:id", threadHandler.UpdateThread)
-		api.DELETE("/threads/:id", threadHandler.DeleteThread)
+		api.PUT("/threads/:thread_id", threadHandler.UpdateThread)
+		api.DELETE("/threads/:thread_id", threadHandler.DeleteThread)
 
 		api.POST("/threads/:thread_id/posts", postHandler.CreatePost)
 		api.GET("/threads/:thread_id/posts", postHandler.GetPostsByThreadID)
-		api.PUT("/posts/:id", postHandler.UpdatePost)
-		api.DELETE("/posts/:id", postHandler.DeletePost)
+		api.PUT("/posts/:post_id", postHandler.UpdatePost)
+		api.DELETE("/posts/:post_id", postHandler.DeletePost)
+
+		api.POST("/threads/:thread_id/like", likeHandler.LikeThread)
+		api.DELETE("/threads/:thread_id/like", likeHandler.UnlikeThread)
+		api.POST("/posts/:post_id/like", likeHandler.LikePost)
+		api.DELETE("/posts/:post_id/like", likeHandler.UnlikePost)
 
 		profile := api.Group("/profile")
 		{
@@ -154,6 +175,8 @@ func migrate(db *gorm.DB) error {
 		&model.Thread{},
 		&model.Post{},
 		&model.Attachment{},
+		&model.ThreadLike{},
+		&model.PostLike{},
 	)
 }
 

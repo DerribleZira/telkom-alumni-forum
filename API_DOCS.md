@@ -689,9 +689,48 @@ Mengedit post. Hanya pemilik post yang bisa mengedit. Bisa juga mengupdate attac
 
 **Response (200):** Updated Post object.
 
+**Response (403):** "unauthorized: you can only update your own post"
+
 ### 18. ✅ DELETE /api/posts/:id (Authenticated User)
 
-Menghapus post. Hanya pemilik atau admin.
+Menghapus post.
+
+### 19. ✅ POST /api/threads/:id/like (Authenticated User)
+
+Like sebuah thread. Menggunakan Redis queue untuk processing.
+
+**Response (200):**
+```json
+{ "message": "thread liked" }
+```
+**Response (400):** "already liked"
+
+### 20. ✅ DELETE /api/threads/:id/like (Authenticated User)
+
+Unlike sebuah thread.
+
+**Response (200):**
+```json
+{ "message": "thread unliked" }
+```
+
+### 21. ✅ POST /api/posts/:id/like (Authenticated User)
+
+Like sebuah post.
+
+**Response (200):**
+```json
+{ "message": "post liked" }
+```
+
+### 22. ✅ DELETE /api/posts/:id/like (Authenticated User)
+
+Unlike sebuah post.
+
+**Response (200):**
+```json
+{ "message": "post unliked" }
+``` Hanya pemilik atau admin.
 
 **Response (200):** `{"message": "post deleted successfully"}`
 

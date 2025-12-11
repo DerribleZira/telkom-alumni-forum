@@ -76,7 +76,7 @@ func (h *PostHandler) GetPostsByThreadID(c *gin.Context) {
 }
 
 func (h *PostHandler) UpdatePost(c *gin.Context) {
-	postIDStr := c.Param("id")
+	postIDStr := c.Param("post_id")
 	postID, err := uuid.Parse(postIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post id"})
@@ -111,7 +111,7 @@ func (h *PostHandler) UpdatePost(c *gin.Context) {
 }
 
 func (h *PostHandler) DeletePost(c *gin.Context) {
-	postIDStr := c.Param("id")
+	postIDStr := c.Param("post_id")
 	postID, err := uuid.Parse(postIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post id"})

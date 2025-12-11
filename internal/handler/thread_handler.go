@@ -81,7 +81,7 @@ func (h *ThreadHandler) GetAllThreads(c *gin.Context) {
 }
 
 func (h *ThreadHandler) DeleteThread(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("thread_id")
 	threadID, err := uuid.Parse(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid thread id"})
@@ -114,7 +114,7 @@ func (h *ThreadHandler) DeleteThread(c *gin.Context) {
 }
 
 func (h *ThreadHandler) UpdateThread(c *gin.Context) {
-	idStr := c.Param("id")
+	idStr := c.Param("thread_id")
 	threadID, err := uuid.Parse(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid thread id"})
