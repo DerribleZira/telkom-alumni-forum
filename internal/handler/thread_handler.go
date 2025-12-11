@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 
 	"anoa.com/telkomalumiforum/internal/dto"
@@ -144,4 +145,35 @@ func (h *ThreadHandler) UpdateThread(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "thread updated successfully"})
+}
+
+func (h *ThreadHandler) GetThreadBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	// Get thread first
+	thread, err := h.service.GetThreadBySlug(c.Request.Context(), slug)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"thread not found": err.Error()})
+		return
+	}
+
+	// Increment view (async, in background)
+	go func() {
+		ctx := context.Background()
+		_ = h.service.IncrementView(ctx, thread.ID, userID)
+	}()
+
+	c.JSON(http.StatusOK, thread)
 }

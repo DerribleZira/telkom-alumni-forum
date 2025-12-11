@@ -13,6 +13,7 @@ import (
 	"anoa.com/telkomalumiforum/internal/service"
 	"anoa.com/telkomalumiforum/pkg/database"
 	"anoa.com/telkomalumiforum/pkg/storage"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
@@ -25,7 +26,7 @@ func main() {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
 	db := database.Connect()
-	
+
 	// Initialize Redis
 	redisClient, err := database.ConnectRedis()
 	if err != nil {
@@ -74,8 +75,13 @@ func main() {
 	likeHandler := handler.NewLikeHandler(likeService)
 
 	threadRepo := repository.NewThreadRepository(db)
-	threadService := service.NewThreadService(threadRepo, categoryRepo, userRepo, attachmentRepo, likeService, imageStorage)
+	threadService := service.NewThreadService(threadRepo, categoryRepo, userRepo, attachmentRepo, likeService, imageStorage, redisClient)
 	threadHandler := handler.NewThreadHandler(threadService)
+
+	viewService := service.NewViewService(redisClient, threadRepo)
+	if redisClient != nil {
+		go viewService.StartViewSyncWorker(context.Background())
+	}
 
 	postRepo := repository.NewPostRepository(db)
 	postService := service.NewPostService(postRepo, threadRepo, userRepo, attachmentRepo, likeService, imageStorage)
@@ -88,6 +94,19 @@ func main() {
 
 	router := gin.Default()
 
+	router.Use(cors.New(cors.Config{
+
+		AllowOrigins: []string{"http://localhost:3000"},
+
+		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+
+		AllowHeaders: []string{"Origin", "Content-Type", "Authorization"},
+
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
 	api := router.Group("/api")
 	{
 		auth := api.Group("/auth")
@@ -97,7 +116,6 @@ func main() {
 	authMiddleware := middleware.NewAuthMiddleware(userRepo)
 
 	// Public routes (tidak perlu auth)
-	
 
 	// Protected routes (perlu auth)
 	api.Use(authMiddleware.RequireAuth())
@@ -117,6 +135,7 @@ func main() {
 
 		api.POST("/threads", threadHandler.CreateThread)
 		api.GET("/threads", threadHandler.GetAllThreads)
+		api.GET("/threads/slug/:slug", threadHandler.GetThreadBySlug)
 		api.PUT("/threads/:thread_id", threadHandler.UpdateThread)
 		api.DELETE("/threads/:thread_id", threadHandler.DeleteThread)
 

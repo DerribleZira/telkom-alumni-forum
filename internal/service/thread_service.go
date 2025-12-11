@@ -10,13 +10,16 @@ import (
 	"anoa.com/telkomalumiforum/internal/repository"
 	"anoa.com/telkomalumiforum/pkg/storage"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 type ThreadService interface {
 	CreateThread(ctx context.Context, userID uuid.UUID, req dto.CreateThreadRequest) error
 	GetAllThreads(ctx context.Context, userID uuid.UUID, filter dto.ThreadFilter) (*dto.PaginatedThreadResponse, error)
+	GetThreadBySlug(ctx context.Context, slug string) (*dto.ThreadResponse, error)
 	DeleteThread(ctx context.Context, userID uuid.UUID, threadID uuid.UUID) error
 	UpdateThread(ctx context.Context, userID uuid.UUID, threadID uuid.UUID, req dto.UpdateThreadRequest) error
+	IncrementView(ctx context.Context, threadID uuid.UUID, userID uuid.UUID) error
 }
 
 type threadService struct {
@@ -26,9 +29,13 @@ type threadService struct {
 	attachmentRepo repository.AttachmentRepository
 	likeService    LikeService
 	fileStorage    storage.ImageStorage
+	redisClient    *redis.Client
+	viewService    ViewService
 }
 
-func NewThreadService(threadRepo repository.ThreadRepository, categoryRepo repository.CategoryRepository, userRepo repository.UserRepository, attachmentRepo repository.AttachmentRepository, likeService LikeService, fileStorage storage.ImageStorage) ThreadService {
+func NewThreadService(threadRepo repository.ThreadRepository, categoryRepo repository.CategoryRepository, userRepo repository.UserRepository, attachmentRepo repository.AttachmentRepository, likeService LikeService, fileStorage storage.ImageStorage, redisClient *redis.Client) ThreadService {
+	viewService := NewViewService(redisClient, threadRepo)
+
 	return &threadService{
 		threadRepo:     threadRepo,
 		categoryRepo:   categoryRepo,
@@ -36,6 +43,8 @@ func NewThreadService(threadRepo repository.ThreadRepository, categoryRepo repos
 		attachmentRepo: attachmentRepo,
 		likeService:    likeService,
 		fileStorage:    fileStorage,
+		redisClient:    redisClient,
+		viewService:    viewService,
 	}
 }
 
@@ -68,7 +77,7 @@ func (s *threadService) CreateThread(ctx context.Context, userID uuid.UUID, req 
 	}
 
 	slug := strings.ReplaceAll(strings.ToLower(req.Title), " ", "-")
-	
+
 	// Basic slug uniqueness check
 	existing, _ := s.threadRepo.FindBySlug(ctx, slug)
 	if existing != nil {
@@ -116,11 +125,11 @@ func (s *threadService) GetAllThreads(ctx context.Context, userID uuid.UUID, fil
 		allowed = []string{"guru", "semua"}
 	default:
 		// Admin sees everything, leave allowed empty to indicate "all" or specific logic
-		// But Wait, if filter is set, we use filter. If not set, we return all. 
+		// But Wait, if filter is set, we use filter. If not set, we return all.
 		// Existing logic: if len(audiences) > 0 -> WHERE audience IN...
-		// So for admin, if we keep effectiveAudiences empty, it means no WHERE audience constraint -> ALL. 
+		// So for admin, if we keep effectiveAudiences empty, it means no WHERE audience constraint -> ALL.
 	}
-	
+
 	if len(allowed) > 0 {
 		if filter.Audience != "" {
 			// Check if requested audience is allowed
@@ -178,7 +187,7 @@ func (s *threadService) GetAllThreads(ctx context.Context, userID uuid.UUID, fil
 				FileType: att.FileType,
 			})
 		}
-		
+
 		authorName := "Unknown"
 		if thread.User.Username != "" {
 			authorName = thread.User.Username
@@ -194,7 +203,7 @@ func (s *threadService) GetAllThreads(ctx context.Context, userID uuid.UUID, fil
 			Content:      thread.Content,
 			Audience:     thread.Audience,
 			Views:        thread.Views,
-			Author:       authorName, 
+			Author:       authorName,
 			Attachments:  attachments,
 			LikesCount:   likesCount,
 			CreatedAt:    thread.CreatedAt.Format("2006-01-02 15:04:05"),
@@ -216,6 +225,47 @@ func (s *threadService) GetAllThreads(ctx context.Context, userID uuid.UUID, fil
 			Limit:       filter.Limit,
 		},
 	}, nil
+}
+
+func (s *threadService) GetThreadBySlug(ctx context.Context, slug string) (*dto.ThreadResponse, error) {
+	thread, err := s.threadRepo.FindBySlug(ctx, slug)
+	if err != nil {
+		return nil, err
+	}
+
+	var attachments []dto.AttachmentResponse
+	for _, att := range thread.Attachments {
+		attachments = append(attachments, dto.AttachmentResponse{
+			ID:       att.ID,
+			FileURL:  att.FileURL,
+			FileType: att.FileType,
+		})
+	}
+
+	authorName := "Unknown"
+	if thread.User.Username != "" {
+		authorName = thread.User.Username
+	}
+
+	likesCount, _ := s.likeService.GetThreadLikes(ctx, thread.ID)
+
+	return &dto.ThreadResponse{
+		ID:           thread.ID,
+		CategoryName: thread.Category.Name,
+		Title:        thread.Title,
+		Slug:         thread.Slug,
+		Content:      thread.Content,
+		Audience:     thread.Audience,
+		Views:        thread.Views,
+		Author:       authorName,
+		Attachments:  attachments,
+		LikesCount:   likesCount,
+		CreatedAt:    thread.CreatedAt.Format("2006-01-02 15:04:05"),
+	}, nil
+}
+
+func (s *threadService) IncrementView(ctx context.Context, threadID uuid.UUID, userID uuid.UUID) error {
+	return s.viewService.IncrementView(ctx, threadID, userID)
 }
 
 func (s *threadService) DeleteThread(ctx context.Context, userID uuid.UUID, threadID uuid.UUID) error {
@@ -272,7 +322,7 @@ func (s *threadService) UpdateThread(ctx context.Context, userID uuid.UUID, thre
 	thread.Title = req.Title
 	thread.Content = req.Content
 	thread.CategoryID = &categoryID
-	
+
 	// Validate Audience based on Role
 	user, err := s.userRepo.FindByID(ctx, userID.String())
 	if err != nil {

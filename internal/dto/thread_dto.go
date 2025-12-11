@@ -33,4 +33,3 @@ type ThreadResponse struct {
 	LikesCount   int64                `json:"likes_count"`
 	CreatedAt    string               `json:"created_at"`
 }
-
